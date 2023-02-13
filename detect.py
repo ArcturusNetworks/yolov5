@@ -79,6 +79,9 @@ def run(
         half=False,  # use FP16 half-precision inference
         dnn=False,  # use OpenCV DNN for ONNX inference
         vid_stride=1,  # video frame-rate stride
+        save_mot=False,  # save results to .txt in mot format
+        mot_name='MOT',  # mot dataset name
+        model_name='yolov5',  # model/weights name
 ):
     source = str(source)
     save_img = not nosave and not source.endswith('.txt')  # save inference images
@@ -92,6 +95,10 @@ def run(
     # Directories
     save_dir = increment_path(Path(project) / name, exist_ok=exist_ok)  # increment run
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
+
+    # Save directories for MOT data
+    mot_dir = Path(FILE.parents[2] / model_name / 'det_output')
+    (mot_dir).mkdir(parents=True, exist_ok=True)
 
     # Load model
     device = select_device(device)
@@ -114,7 +121,13 @@ def run(
     # Run inference
     model.warmup(imgsz=(1 if pt or model.triton else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
+
+    # Counter for saving mot results
+    img_id = 0
+    mot_path = mot_dir / mot_name
+
     for path, im, im0s, vid_cap, s in dataset:
+        img_id += 1
         with dt[0]:
             im = torch.from_numpy(im).to(model.device)
             im = im.half() if model.fp16 else im.float()  # uint8 to fp16/32
@@ -166,6 +179,19 @@ def run(
                         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
                         with open(f'{txt_path}.txt', 'a') as f:
                             f.write(('%g ' * len(line)).rstrip() % line + '\n')
+                    if save_mot: # Write to file in mot format
+                        save_format = '{frame},{id},{x1},{y1},{w},{h},{conf:.2f},{cls},-1,-1\n'
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+
+                        x1 = xyxy[0]
+                        y1 = xyxy[1]
+                        w  = xyxy[2] - xyxy[0]
+                        h  = xyxy[3] - xyxy[1]
+
+                        # line = save_format.format(frame=img_id, id=0, x1=xywh[0], y1=xywh[1], w=xywh[2], h=xywh[3], conf=conf, cls=cls)
+                        line = save_format.format(frame=img_id, id=0, x1=x1, y1=y1, w=w, h=h, conf=conf, cls=cls)
+                        with open(f'{mot_path}.txt', 'a') as f:
+                            f.write(line)
 
                     if save_img or save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
@@ -245,6 +271,9 @@ def parse_opt():
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
     parser.add_argument('--vid-stride', type=int, default=1, help='video frame-rate stride')
+    parser.add_argument('--save-mot', action='store_true', help='save results to *.txt in mot format')
+    parser.add_argument('--mot-name', type=str, default='MOT', help='name of MOT dataset')
+    parser.add_argument('--model-name', type=str, default='yolov5', help='name of model/weights to label saved data')
     opt = parser.parse_args()
     opt.imgsz *= 2 if len(opt.imgsz) == 1 else 1  # expand
     print_args(vars(opt))
