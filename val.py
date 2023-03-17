@@ -50,6 +50,8 @@ def save_one_txt(predn, save_conf, shape, file):
     # Save one txt result
     gn = torch.tensor(shape)[[1, 0, 1, 0]]  # normalization gain whwh
     for *xyxy, conf, cls in predn.tolist():
+        if cls != 0:
+            continue
         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
         line = (cls, *xywh, conf) if save_conf else (cls, *xywh)  # label format
         with open(file, 'a') as f:
