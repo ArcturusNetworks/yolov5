@@ -139,6 +139,8 @@ def train(opt, device):
         logger.log_images(file, name='Train Examples')
         logger.log_graph(model, imgsz)  # log model
 
+    model_names = model.names
+
     # Optimizer
     optimizer = smart_optimizer(model, opt.optimizer, opt.lr0, momentum=0.9, decay=opt.decay)
 
@@ -258,13 +260,14 @@ def train(opt, device):
                     f"\nVisualize:       https://netron.app\n")
 
         # Plot examples
-        images, labels = (x[:25] for x in next(iter(testloader)))  # first 25 images and labels
-        pred = torch.max(ema.ema(images.to(device)), 1)[1]
-        file = imshow_cls(images, labels, pred, model.names, verbose=False, f=save_dir / 'test_images.jpg')
+        for i in range(0, 24, 4):
+            images, labels = (x[i:i+4] for x in next(iter(testloader)))  # first 25 images and labels
+            pred = torch.max(ema.ema(images.to(device)), 1)[1]
+            file = imshow_cls(images, labels, pred, model_names, verbose=False, f=save_dir / f'test_images_{i}-{i+3}.jpg')
+            logger.log_images(file, name=f'Test Examples {i}-{i+3} (true-predicted)', epoch=epoch)
 
         # Log results
         meta = {"epochs": epochs, "top1_acc": best_fitness, "date": datetime.now().isoformat()}
-        logger.log_images(file, name='Test Examples (true-predicted)', epoch=epoch)
         logger.log_model(best, epochs, metadata=meta)
 
 

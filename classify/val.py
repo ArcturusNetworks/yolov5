@@ -59,6 +59,7 @@ def run(
     dataloader=None,
     criterion=None,
     pbar=None,
+    task='test'
 ):
     # Initialize/load model and set device
     training = model is not None
@@ -88,7 +89,7 @@ def run(
 
         # Dataloader
         data = Path(data)
-        test_dir = data / 'test' if (data / 'test').exists() else data / 'val'  # data/test or data/val
+        test_dir = data / task if (data / task).exists() else data / 'val'  # data/test or data/val
         dataloader = create_classification_dataloader(path=test_dir,
                                                       imgsz=imgsz,
                                                       batch_size=batch_size,
@@ -155,6 +156,7 @@ def parse_opt():
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--half', action='store_true', help='use FP16 half-precision inference')
     parser.add_argument('--dnn', action='store_true', help='use OpenCV DNN for ONNX inference')
+    parser.add_argument('--task', default='test', help='train, val, or test')
     opt = parser.parse_args()
     print_args(vars(opt))
     return opt

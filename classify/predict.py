@@ -33,6 +33,7 @@ import os
 import platform
 import sys
 from pathlib import Path
+import tqdm
 
 import torch
 import torch.nn.functional as F
@@ -106,6 +107,7 @@ def run(
     # Run inference
     model.warmup(imgsz=(1 if pt else bs, 3, *imgsz))  # warmup
     seen, windows, dt = 0, [], (Profile(), Profile(), Profile())
+    #for path, im, im0s, vid_cap, s in tqdm.tqdm(dataset):
     for path, im, im0s, vid_cap, s in dataset:
         with dt[0]:
             im = torch.Tensor(im).to(model.device)
@@ -115,7 +117,7 @@ def run(
 
         # Inference
         with dt[1]:
-            results = model(im)
+            results = model(im, visualize=visualize)
 
         # Post-process
         with dt[2]:
@@ -144,7 +146,7 @@ def run(
             # Write results
             text = '\n'.join(f'{prob[j]:.2f} {names[j]}' for j in top5i)
             if save_img or view_img:  # Add bbox to image
-                annotator.text((32, 32), text, txt_color=(255, 255, 255))
+                annotator.text((152, 32), text, txt_color=(255, 255, 255))
             if save_txt:  # Write to file
                 with open(f'{txt_path}.txt', 'a') as f:
                     f.write(text + '\n')
